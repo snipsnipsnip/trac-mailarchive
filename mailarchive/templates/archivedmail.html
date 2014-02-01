@@ -1,0 +1,34 @@
+<!DOCTYPE html
+    PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+    "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml"
+      xmlns:xi="http://www.w3.org/2001/XInclude"
+      xmlns:py="http://genshi.edgewall.org/"
+      xmlns:i18n="http://genshi.edgewall.org/i18n">
+  <xi:include href="layout.html" />
+  <head>
+    <title>${mail['subject']}</title>
+    <script type="text/javascript">
+      jQuery(document).ready(function($) {
+        $(".foldable").enableFolding(false, true);
+      });
+    </script>
+  </head>
+  <body>
+    <p>From: ${mail['from']}</p>
+    <p>To: ${mail['to']}</p>
+    <p>Date: <tt>${mail['date']}</tt></p>
+    <div class="collapsed">
+        <h3 class="foldable">Headers</h3>
+        <div>
+            <pre class="wiki">${mail['allheaders']}</pre>
+        </div>
+    </div>
+
+    <xi:include href="list_of_attachments.html"
+                py:with="alist = attachments; compact = True; foldable = True"/>
+
+    <h2>${mail['subject']}</h2>
+    <pre class="wiki">${mail['body']}</pre>
+  </body>
+</html>

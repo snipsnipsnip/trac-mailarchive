@@ -1,0 +1,42 @@
+<!DOCTYPE html
+    PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+    "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml"
+      xmlns:xi="http://www.w3.org/2001/XInclude"
+      xmlns:py="http://genshi.edgewall.org/"
+      xmlns:i18n="http://genshi.edgewall.org/i18n">
+  <xi:include href="layout.html" />
+  <head>
+    <title>Mail Archive</title>
+  </head>
+  <body>
+    <div id="content">
+      <h2>Mail Archive<span py:if="paginator.has_more_pages"> (${paginator.displayed_items()})</span></h2>
+
+      <form id="prefs" method="get" action="">
+        <p class="option">
+          <label for="max">Max items per page</label>
+          <input type="text" name="max" id="max" size="10" value="${max_per_page}" />
+        </p>
+        <div class="buttons">
+          <input type="submit" name="update" value="Update" />
+        </div>
+      </form>
+
+      <table class="listing">
+        <thead>
+          <tr class="trac-columns"><th>Subject:</th><th>From:</th><th>Date:</th></tr>
+        </thead>
+        <tbody>
+          <tr py:for="idx, mail in enumerate(mails)" class="${'odd' if idx % 2 else 'even'}">
+            <td><a href="$mail.href">${mail['subject']}</a></td>
+            <td>${mail['from']}</td> 
+            <td><tt>${mail['date']}</tt></td>
+          </tr>
+        </tbody>
+      </table>
+      <xi:include py:if="paginator.show_index" href="page_index.html" />
+      <div id="help">${help}</div>
+    </div>
+  </body>
+</html>
