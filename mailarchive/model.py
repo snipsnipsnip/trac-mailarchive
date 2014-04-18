@@ -61,9 +61,15 @@ class ArchivedMail(object):
         charset = get_charset(msg)
         body = None
         for part in msg.walk():
-            if part.get_content_type() == 'text/plain':
+            content_type = part.get_content_type()
+            if content_type == 'text/plain':
                 charset = get_charset(part, get_charset(msg))
                 body = part.get_payload(decode=True)
+                break # Take only the first text/plain part as the body
+            elif content_type == 'message/rfc822':
+                if part.get('Content-Transfer-Encoding') == 'base64':
+                    # This is an invalid email and Python will misdetect a 'text/plain' part that is actually a base64 encoded attachment.
+                    break
 
         date = datetime.fromtimestamp(mktime_tz(parsedate_tz(msg['date'])), utc)
 
@@ -104,6 +110,11 @@ class ArchivedMail(object):
             if cd:
                 d = cd.strip().split(';')
                 if d[0].lower() == 'attachment':
+                    if part.get_content_type() == 'message/rfc822' and part.get('Content-Transfer-Encoding') == 'base64':
+                        # This is an invalid email and Python will misdetect the attachment in a separate 'text/plain' part, not here.
+                        # TODO: actually extract that separate 'text/plain' attachment somehow.
+                        add_attachment('Invalid attachment: message/rfc822 parts can not be base64 encoded!', part.get_filename())
+                        continue
                     add_attachment(part.get_payload(decode=True), part.get_filename())
 
             cid = part.get('Content-ID')
