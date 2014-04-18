@@ -222,10 +222,14 @@ class MailQueryMacro(WikiMacroBase):
     """List all matching archived mails.
    
     The first argument is a search term.
-   
+    
+    An optional parameter `format` can be:
+        format=table (Default)
+        format=list
+    
     Example:
     {{{
-        [[MailQuery(bgates@microsoft.com)]]
+        [[MailQuery(bgates@microsoft.com, format=list)]]
     }}}
     """
 
@@ -236,5 +240,31 @@ class MailQueryMacro(WikiMacroBase):
         for mail in ArchivedMail.search(self.env, terms):
             link = formatter.href.mailarchive(mail.id)
             title = escape(mail.subject)
-            items.append(tag.li(tag.a(title, href=link)))
-        return tag.div(tag.ul(item for item in items))
+            items.append((mail, title, link))
+
+        format = kw.get('format', 'table')
+        if format == 'list':
+            return tag.div(
+                tag.ul(
+                    tag.li(
+                        tag.a(title, href=link))
+                    for mail, title, link in items))
+        elif format == 'table':
+            rows = [tag.tr(
+                        tag.td(tag.a(title, href=link)),
+                        tag.td(render_mailto(mail.fromheader or '')),
+                        tag.td(tag.tt(format_datetime(mail.date))),
+                        class_='odd' if idx % 2 else 'even')
+                    for idx, (mail, title, link) in enumerate(items)]
+            if not rows:
+                rows = [tag.tr(tag.td('No mails found', colspan=3, class_='even'))]
+
+            return tag.table(
+                tag.thead(
+                    tag.tr(
+                        tag.th('Subject:'),
+                        tag.th('From:'),
+                        tag.th('Date:'),
+                        class_='trac-columns')),
+                tag.tbody(rows),
+                class_='listing')
