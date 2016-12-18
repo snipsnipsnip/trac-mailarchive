@@ -10,7 +10,6 @@ from trac.attachment import Attachment
 from trac.db import Table, Column, Index
 from trac.mimeview.api import KNOWN_MIME_TYPES
 from trac.resource import Resource
-from trac.search import search_to_sql
 from trac.util.datefmt import from_utimestamp, to_utimestamp, utc
 
 
@@ -35,6 +34,34 @@ EXT_MAP['image/png'] = 'png'
 EXT_MAP['image/tiff'] = 'tiff'
 EXT_MAP['image/svg+xml'] = 'svg'
 
+def terms_to_clauses(terms):
+    """Split list of search terms and the 'or' keyword into list of lists of search terms."""
+    clauses = [[]]
+    for term in terms:
+        if term == 'or':
+            clauses.append([])
+        else:
+            clauses[-1].append(term)
+    return clauses
+
+def search_clauses_to_sql(db, columns, clauses):
+    """Convert a search query into an SQL WHERE clause and corresponding
+    parameters.
+    
+    Similar to trac.search.search_to_sql but supports 'or' clauses.
+
+    The result is returned as an `(sql, params)` tuple.
+    """
+    assert columns and clauses
+
+    likes = ['%s %s' % (i, db.like()) for i in columns]
+    c = ' OR '.join(likes)
+    sql = '(' + ') OR ('.join('(' + ') AND ('.join([c] * len(clause)) + ')' for clause in clauses) + ')'
+    args = []
+    for clause in clauses:
+        for term in clause:
+            args.extend(['%' + db.like_escape(term) + '%'] * len(columns))
+    return sql, tuple(args)
 
 class ArchivedMail(object):
 
@@ -161,7 +188,7 @@ class ArchivedMail(object):
     @classmethod
     def search(cls, env, terms):
         with env.db_query as db:
-            sql_query, args = search_to_sql(db, ['body', 'allheaders'], terms)
+            sql_query, args = search_clauses_to_sql(db, ['body', 'allheaders'], terms_to_clauses(terms))
             return [ArchivedMail(id, subject, fromheader, toheader, body, allheaders, date)
                     for id, subject, fromheader, toheader, body, allheaders, date in
                     db("""
