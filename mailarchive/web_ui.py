@@ -221,7 +221,7 @@ class MailArchiveModule(Component):
 class MailQueryMacro(WikiMacroBase):
     """List all matching archived mails.
    
-    The first argument is a search term.
+    The arguments are search terms. `or` can be used.
     
     An optional parameter `format` can be:
         format=table (Default)
@@ -229,7 +229,7 @@ class MailQueryMacro(WikiMacroBase):
     
     Example:
     {{{
-        [[MailQuery(bgates@microsoft.com, format=list)]]
+        [[MailQuery(bgates@microsoft.com,or,Bill Gates,Microsoft, format=list)]]
     }}}
     """
 
