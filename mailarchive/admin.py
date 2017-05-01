@@ -23,7 +23,7 @@ class MailArchiveAdmin(Component):
         yield ('mailarchive fetch', '<host> <username> <password>',
                'Download mails to the archive (via IMAP4)',
                None, self._do_fetch)
-        
+
     def _do_fetch(self, host, username, password):
         imap_conn = imaplib.IMAP4_SSL(host)
         imap_conn.login(username, password)
@@ -33,7 +33,7 @@ class MailArchiveAdmin(Component):
         yesterday = (datetime.date.today() - datetime.timedelta(1)).strftime("%d-%b-%Y")
         typ, data = imap_conn.uid('search', None, '(OR UNSEEN (SINCE %s))' % (yesterday,))
         for uid in data[0].split():
-        
+
             # No duplicates
             if ArchivedMail.select_by_id(self.env, uid) is not None:
                 print "Skipping mail with UID %s" % (uid,)

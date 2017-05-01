@@ -47,7 +47,7 @@ def terms_to_clauses(terms):
 def search_clauses_to_sql(db, columns, clauses):
     """Convert a search query into an SQL WHERE clause and corresponding
     parameters.
-    
+
     Similar to trac.search.search_to_sql but supports 'or' clauses.
 
     The result is returned as an `(sql, params)` tuple.
@@ -82,7 +82,7 @@ class ArchivedMail(object):
             return None if header is None else u''.join(unicode(part, charset or 'ASCII', errors='replace') for part, charset in decode_header(header))
         def to_unicode(s, charset):
             return None if s is None else unicode(s, charset, errors='replace')
-        
+
         def get_charset(m, default='ASCII'):
             return m.get_content_charset() or m.get_charset() or default
         charset = get_charset(msg)
@@ -128,7 +128,7 @@ class ArchivedMail(object):
             with TemporaryFile('w+b') as file:
                 file.write(payload)
                 size = file.tell()
-                file.seek(0)                
+                file.seek(0)
                 attachment = Attachment(env, 'mailarchive', mail.id)
                 attachment.insert(filename, file, size)
 
@@ -194,7 +194,7 @@ class ArchivedMail(object):
                     db("""
                     SELECT id, subject, fromheader, toheader, body, allheaders, date
                     FROM mailarchive
-                    WHERE 
+                    WHERE
                     """ + sql_query, args)]
 
     @classmethod

@@ -15,7 +15,7 @@ from trac.util.html import escape
 from trac.util.datefmt import format_datetime
 from trac.util.presentation import Paginator
 from trac.web import IRequestHandler
-from trac.web.chrome import (INavigationContributor, ITemplateProvider, 
+from trac.web.chrome import (INavigationContributor, ITemplateProvider,
                              add_link, add_script, prevnext_nav, web_context)
 from trac.wiki.formatter import format_to_html
 from trac.wiki.macros import WikiMacroBase
@@ -46,14 +46,14 @@ class MailArchiveModule(Component):
 
     help = Option('mailarchive', 'help', '**Note:** See MailArchive for help on using the mail archive.',
                   """Help text shown at bottom in wiki format.""")
-               
+
     # ILegacyAttachmentPolicyDelegate
 
     def check_attachment_permission(self, action, username, resource, perm):
         if resource.parent.realm == 'mailarchive':
             if action == 'ATTACHMENT_VIEW':
                 return 'MAIL_ARCHIVE_VIEW' in perm(resource.parent)
-            elif action in ('ATTACHMENT_CREATE','ATTACHMENT_DELETE'): 
+            elif action in ('ATTACHMENT_CREATE','ATTACHMENT_DELETE'):
                 return 'TRAC_ADMIN' in perm(resource.parent)
 
     # INavigationContributor methods
@@ -63,16 +63,16 @@ class MailArchiveModule(Component):
 
     def get_navigation_items(self, req):
         if 'MAIL_ARCHIVE_VIEW' in req.perm:
-            yield ('mainnav', 'mailarchive', 
+            yield ('mainnav', 'mailarchive',
                    tag.a('Mail Archive', href=req.href.mailarchive()))
 
     # IPermissionRequestor methods
-    
+
     def get_permission_actions(self):
         return ['MAIL_ARCHIVE_VIEW']
 
     # IResourceManager methods
-        
+
     def get_resource_realms(self):
         yield 'mailarchive'
 
@@ -89,9 +89,9 @@ class MailArchiveModule(Component):
         return ArchivedMail.select_by_id(self.env, resource.id) is not None
 
     # IRequestHandler methods
-    
+
     MATCH_REQUEST_RE = re.compile(r'/mailarchive(?:/(\d+))?$')
-    
+
     def match_request(self, req):
         match = self.MATCH_REQUEST_RE.match(req.path_info)
         if match:
@@ -115,7 +115,7 @@ class MailArchiveModule(Component):
             'subject': escape(mail.subject),
             'href': req.href.mailarchive(mail.id),
             'from': render_mailto(mail.fromheader or ''),
-            'date': format_datetime(mail.date),            
+            'date': format_datetime(mail.date),
         } for mail in ArchivedMail.select_all_paginated(self.env, page, max_per_page)]
         total_count = ArchivedMail.count_all(self.env)
 
@@ -162,10 +162,10 @@ class MailArchiveModule(Component):
             'attachments': AttachmentModule(self.env).attachment_data(context),
         }
 
-        if ArchivedMail.select_by_id(self.env, id - 1) is not None: 
+        if ArchivedMail.select_by_id(self.env, id - 1) is not None:
             add_link(req, 'prev', req.href.mailarchive(id - 1), 'Prev')
-        add_link(req, 'up', req.href.mailarchive(), 'Up') 
-        if ArchivedMail.select_by_id(self.env, id + 1) is not None: 
+        add_link(req, 'up', req.href.mailarchive(), 'Up')
+        if ArchivedMail.select_by_id(self.env, id + 1) is not None:
             add_link(req, 'next', req.href.mailarchive(id + 1), 'Next')
         prevnext_nav(req, 'Prev', 'Next', 'Up')
 
@@ -174,7 +174,7 @@ class MailArchiveModule(Component):
         return "archivedmail.html", data, None
 
     # ISearchSource methods
-    
+
     def get_search_filters(self, req):
         if 'MAIL_ARCHIVE_VIEW' in req.perm:
             yield ('mailarchive', 'Mail Archive', True)
@@ -193,7 +193,7 @@ class MailArchiveModule(Component):
                 yield (link, title, dt, author, excerpt)
 
     # ITemplateProvider methods
-    
+
     def get_htdocs_dirs(self):
         return []
 
@@ -220,13 +220,13 @@ class MailArchiveModule(Component):
 
 class MailQueryMacro(WikiMacroBase):
     """List all matching archived mails.
-   
+
     The arguments are search terms. `or` can be used.
-    
+
     An optional parameter `format` can be:
         format=table (Default)
         format=list
-    
+
     Example:
     {{{
         [[MailQuery(bgates@microsoft.com,or,Bill Gates,Microsoft, format=list)]]
