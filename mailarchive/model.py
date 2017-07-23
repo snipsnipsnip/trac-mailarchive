@@ -4,13 +4,16 @@ from datetime import datetime, tzinfo
 import email
 from email.header import decode_header
 from email.utils import parsedate_tz, mktime_tz
+import re
 from tempfile import TemporaryFile
+import unicodedata
 
 from trac.attachment import Attachment
 from trac.db import Table, Column, Index
 from trac.mimeview.api import KNOWN_MIME_TYPES
 from trac.resource import Resource
 from trac.util.datefmt import from_utimestamp, to_utimestamp, utc
+from trac.util.text import stripws
 
 
 SCHEMA = [
@@ -33,6 +36,32 @@ EXT_MAP['image/jpeg'] = 'jpeg'
 EXT_MAP['image/png'] = 'png'
 EXT_MAP['image/tiff'] = 'tiff'
 EXT_MAP['image/svg+xml'] = 'svg'
+
+DELETE_CHARS_RE = re.compile(
+    '[' +
+    ''.join(filter(lambda c: unicodedata.category(c) == 'Cc',
+                   map(unichr, xrange(0x10000)))) +
+    '\\/:*?"<>|' +
+    ']')
+
+def normalized_filename(filename):
+    filename = DELETE_CHARS_RE.sub(' ', filename)
+    filename = stripws(filename)
+    return filename
+
+def header_to_unicode(header):
+    if header is None:
+        return None
+    if isinstance(header, unicode):
+        return header
+    return u''.join(unicode(part, charset or 'ASCII', errors='replace')
+                    for part, charset in decode_header(header))
+
+def to_unicode(s, charset):
+    return None if s is None else unicode(s, charset, errors='replace')
+
+def get_charset(m, default='ASCII'):
+    return m.get_content_charset() or m.get_charset() or default
 
 def terms_to_clauses(terms):
     """Split list of search terms and the 'or' keyword into list of lists of search terms."""
@@ -77,14 +106,6 @@ class ArchivedMail(object):
     @classmethod
     def parse(cls, id, source):
         msg = email.message_from_string(source)
-
-        def header_to_unicode(header):
-            return None if header is None else u''.join(unicode(part, charset or 'ASCII', errors='replace') for part, charset in decode_header(header))
-        def to_unicode(s, charset):
-            return None if s is None else unicode(s, charset, errors='replace')
-
-        def get_charset(m, default='ASCII'):
-            return m.get_content_charset() or m.get_charset() or default
         charset = get_charset(msg)
         body = None
         for part in msg.walk():
@@ -132,27 +153,31 @@ class ArchivedMail(object):
                 attachment = Attachment(env, 'mailarchive', mail.id)
                 attachment.insert(filename, file, size)
 
-        for part in msg.walk():
+        def get_filename(part, index):
+            filename = header_to_unicode(part.get_filename())
+            if not filename:
+                mimetype = part.get_content_type()
+                ext = EXT_MAP.get(mimetype) or part.get_content_subtype() or mimetype or '_'
+                filename = "unnamed-part-%s.%s" % (index, ext)
+            return normalized_filename(filename)
+
+        for index, part in enumerate(msg.walk()):
             cd = part.get('Content-Disposition')
             if cd:
                 d = cd.strip().split(';')
                 if d[0].lower() == 'attachment':
+                    filename = get_filename(part, index)
                     if part.get_content_type() == 'message/rfc822' and part.get('Content-Transfer-Encoding') == 'base64':
                         # This is an invalid email and Python will misdetect the attachment in a separate 'text/plain' part, not here.
                         # TODO: actually extract that separate 'text/plain' attachment somehow.
-                        add_attachment('Invalid attachment: message/rfc822 parts can not be base64 encoded!', part.get_filename())
+                        add_attachment('Invalid attachment: message/rfc822 parts can not be base64 encoded!', filename)
                         continue
-                    add_attachment(part.get_payload(decode=True), part.get_filename())
+                    add_attachment(part.get_payload(decode=True), filename)
+                    continue
 
             cid = part.get('Content-ID')
             if cid:
-                mimetype = part.get('Content-Type')
-                ext = EXT_MAP.get(mimetype) if mimetype in EXT_MAP else \
-                    mimetype[mimetype.rindex('/')+1:] if '/' in mimetype else \
-                    mimetype
-                filename = cid + '.' + ext
-                deletechars = '\/:*?"<>|'
-                filename = filename.translate(None, deletechars)
+                filename = get_filename(part, index)
                 add_attachment(part.get_payload(decode=True), filename)
 
     @classmethod
