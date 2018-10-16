@@ -15,6 +15,10 @@ from mailarchive.model import ArchivedMail, SCHEMA, normalized_filename
 PLUGIN_NAME = 'MailArchivePlugin'
 PLUGIN_VERSION = 1
 
+def to_imap_date(d):
+    months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+    return "%s-%s-%s" % (d.day, months[d.month - 1], d.year)
+
 class MailArchiveAdmin(Component):
 
     implements(IEnvironmentSetupParticipant, IAdminCommandProvider)
@@ -35,7 +39,7 @@ class MailArchiveAdmin(Component):
         imap_conn.select()
 
         # Search for mails since yesterday
-        yesterday = (datetime.date.today() - datetime.timedelta(1)).strftime("%d-%b-%Y")
+        yesterday = to_imap_date(datetime.date.today() - datetime.timedelta(1))
         typ, data = imap_conn.uid('search', None, '(OR UNSEEN (SINCE %s))' % (yesterday,))
         for uid in data[0].split():
 
