@@ -6,18 +6,22 @@ import os
 
 from trac.admin import IAdminCommandProvider
 from trac.attachment import Attachment
+from trac.core import Component, TracError, implements
 from trac.db.api import DatabaseManager
-from trac.core import *
 from trac.env import IEnvironmentSetupParticipant
+from trac.util.text import exception_to_unicode
+from trac.util.translation import _
 
 from mailarchive.model import ArchivedMail, SCHEMA, normalized_filename
 
 PLUGIN_NAME = 'MailArchivePlugin'
 PLUGIN_VERSION = 1
 
+
 def to_imap_date(d):
     months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
     return "%s-%s-%s" % (d.day, months[d.month - 1], d.year)
+
 
 class MailArchiveAdmin(Component):
 
