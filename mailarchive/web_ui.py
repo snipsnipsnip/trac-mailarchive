@@ -3,7 +3,6 @@
 import re
 from email.utils import getaddresses
 from pkg_resources import resource_filename
-from genshi.builder import tag
 
 from trac.attachment import AttachmentModule, ILegacyAttachmentPolicyDelegate
 from trac.config import Option
@@ -11,7 +10,7 @@ from trac.core import *
 from trac.perm import IPermissionRequestor
 from trac.resource import IResourceManager, Resource, ResourceNotFound, resource_exists
 from trac.search import ISearchSource, shorten_result
-from trac.util.html import escape
+from trac.util.html import escape, tag
 from trac.util.datefmt import format_datetime
 from trac.util.presentation import Paginator
 from trac.web import IRequestHandler
@@ -22,6 +21,7 @@ from trac.wiki.macros import WikiMacroBase
 from trac.wiki.api import IWikiSyntaxProvider, parse_args
 
 from mailarchive.model import ArchivedMail
+from mailarchive.admin import MailArchiveAdmin
 
 
 def render_mailto(addresses):
@@ -46,6 +46,15 @@ class MailArchiveModule(Component):
 
     help = Option('mailarchive', 'help', '**Note:** See MailArchive for help on using the mail archive.',
                   """Help text shown at bottom in wiki format.""")
+
+    host = Option('mailarchive', 'host',
+                  """Host to fetch mail from.""")
+
+    username = Option('mailarchive', 'username',
+                  """Username to fetch mail with.""")
+
+    password = Option('mailarchive', 'password',
+                  """Password to fetch mail with.""")
 
     # ILegacyAttachmentPolicyDelegate
 
@@ -102,6 +111,12 @@ class MailArchiveModule(Component):
     def process_request(self, req):
         req.perm.require('MAIL_ARCHIVE_VIEW')
 
+        if req.method == 'POST':
+            if req.args.get('fetch_mail'):
+                admin = MailArchiveAdmin(self.env)
+                admin._do_fetch(self.host, self.username, self.password)
+                req.redirect(req.href.mailarchive())
+
         if 'message-id' in req.args:
             id = int(req.args.get('message-id'))
             return self._render_mail(req, id)
@@ -141,24 +156,44 @@ class MailArchiveModule(Component):
         help_html = format_to_html(self.env, context, self.help)
 
         data = { 'mails': mails, 'paginator': paginator, 'max_per_page': max_per_page, 'help': help_html }
-        return "archivedmail-list.html", data, None
+        return "archivedmail-list.html", data
 
     def _render_mail(self, req, id):
         mail = ArchivedMail.select_by_id(self.env, id)
         if not mail:
             raise ResourceNotFound("Mail does not exist")
 
-        resource = Resource('mailarchive', id)
-        context = web_context(req, resource)
-        data = {
-            'mail': {
+        def mail_data(mail):
+            return {
                 'subject': escape(mail.subject),
                 'from': render_mailto(mail.fromheader or ''),
                 'to': render_mailto(mail.toheader or ''),
                 'body': escape(mail.body),
                 'allheaders': escape(mail.allheaders),
                 'date': format_datetime(mail.date),
-            },
+                'ref': req.href.mailarchive(mail.id),
+                'current': int(mail.id) == id,
+            }
+
+        related_mail_data = [
+            mail_data(related_mail)
+            for related_id, related_mail in
+            sorted({
+                found_mail.id: found_mail
+                for header in mail.allheaders.split('\n')
+                for h in ('Message-ID:', 'In-Reply-To:', 'References:')
+                if header.startswith(h)
+                for part in header[len(h):].split(' ')
+                if part
+                for found_mail in ArchivedMail.search(self.env, [part.strip()])
+            }.iteritems())
+        ]
+
+        resource = Resource('mailarchive', id)
+        context = web_context(req, resource)
+        data = {
+            'mail': mail_data(mail),
+            'related_mails': related_mail_data,
             'attachments': AttachmentModule(self.env).attachment_data(context),
         }
 
@@ -171,7 +206,7 @@ class MailArchiveModule(Component):
 
         add_script(req, 'common/js/folding.js')
 
-        return "archivedmail.html", data, None
+        return "archivedmail.html", data
 
     # ISearchSource methods
 
@@ -227,6 +262,8 @@ class MailQueryMacro(WikiMacroBase):
         format=table (Default)
         format=list
 
+    The `max` parameter can be used to limit the number of mails shown (defaults to 0, i.e. no maximum).
+ 
     Example:
     {{{
         [[MailQuery(bgates@microsoft.com,or,Bill Gates,Microsoft, format=list)]]
@@ -235,9 +272,10 @@ class MailQueryMacro(WikiMacroBase):
 
     def expand_macro(self, formatter, name, content):
         args, kw = parse_args(content)
+        max = int(kw.get('max', 0))
         terms = args
         items = []
-        for mail in ArchivedMail.search(self.env, terms):
+        for mail in ArchivedMail.search(self.env, terms, max):
             link = formatter.href.mailarchive(mail.id)
             title = escape(mail.subject)
             items.append((mail, title, link))

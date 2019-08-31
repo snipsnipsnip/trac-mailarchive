@@ -1,13 +1,13 @@
-<!DOCTYPE html
-    PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
-    "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
-<html xmlns="http://www.w3.org/1999/xhtml"
-      xmlns:xi="http://www.w3.org/2001/XInclude"
-      xmlns:py="http://genshi.edgewall.org/"
-      xmlns:i18n="http://genshi.edgewall.org/i18n">
-  <xi:include href="layout.html" />
+# extends "layout.html"
+<!DOCTYPE html>
+<html>
   <head>
-    <title>${mail['subject']}</title>
+    <title>
+      # block title
+      ${mail['subject']}
+      ${ super() }
+      # endblock title
+    </title>
     <script type="text/javascript">
       jQuery(document).ready(function($) {
         $(".foldable").enableFolding(false, true);
@@ -15,6 +15,7 @@
     </script>
   </head>
   <body>
+    # block content
     <p>From: ${mail['from']}</p>
     <p>To: ${mail['to']}</p>
     <p>Date: <tt>${mail['date']}</tt></p>
@@ -24,11 +25,36 @@
             <pre class="wiki">${mail['allheaders']}</pre>
         </div>
     </div>
+    <div>
+        <h3 class="foldable">Thread</h3>
+        <table class="listing">
+            <thead>
+                <tr class="trac-columns"><th>Subject:</th><th>From:</th><th>Date:</th></tr>
+            </thead>
+            <tbody>
+              # for relmail in related_mails:
+              <tr class="${loop.cycle('odd', 'even')}">
+                <td>
+                    # if not relmail['current']:
+                    <a href="${relmail['ref']}">${relmail['subject']}</a>
+                    # else:
+                    <i>${relmail['subject']}</i>
+                    # endif
+                </td>
+                <td>${relmail['from']}</td> 
+                <td><tt>${relmail['date']}</tt></td>
+              </tr>
+              # endfor
+            </tbody>
+        </table>
+    </div>
 
-    <xi:include href="list_of_attachments.html"
-                py:with="alist = attachments; compact = True; foldable = True"/>
+    # with alist = attachments, compact = True, foldable = True
+    #   include 'list_of_attachments.html'
+    # endwith
 
     <h2>${mail['subject']}</h2>
     <pre class="wiki">${mail['body']}</pre>
+  # endblock content
   </body>
 </html>

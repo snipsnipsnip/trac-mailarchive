@@ -5,7 +5,7 @@ from setuptools import setup
 
 setup(
     name = 'MailArchive',
-    version = '1.1',
+    version = '1.2',
     author = 'Peter Suter',
     author_email = 'peter@lucid.ch',
     description = 'Mail Archive',

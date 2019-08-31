@@ -1,18 +1,22 @@
-<!DOCTYPE html
-    PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
-    "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
-<html xmlns="http://www.w3.org/1999/xhtml"
-      xmlns:xi="http://www.w3.org/2001/XInclude"
-      xmlns:py="http://genshi.edgewall.org/"
-      xmlns:i18n="http://genshi.edgewall.org/i18n">
-  <xi:include href="layout.html" />
+# extends "layout.html"
+<!DOCTYPE html>
+<html>
   <head>
-    <title>Mail Archive</title>
+    <title>
+      # block title
+      Mail Archive
+      ${ super() }
+      # endblock title
+    </title>
   </head>
   <body>
+    # block content
     <div id="content">
-      <h2>Mail Archive<span py:if="paginator.has_more_pages"> (${paginator.displayed_items()})</span></h2>
-
+      # if paginator.has_more_pages:
+      <h2>Mail Archive (${paginator.displayed_items()})</h2>
+      # else:
+      <h2>Mail Archive</h2>
+      # endif
       <form id="prefs" method="get" action="">
         <p class="option">
           <label for="max">Max items per page</label>
@@ -28,15 +32,26 @@
           <tr class="trac-columns"><th>Subject:</th><th>From:</th><th>Date:</th></tr>
         </thead>
         <tbody>
-          <tr py:for="idx, mail in enumerate(mails)" class="${'odd' if idx % 2 else 'even'}">
-            <td><a href="$mail.href">${mail['subject']}</a></td>
+          # for mail in mails:
+          <tr class="${loop.cycle('odd', 'even')}">
+            <td><a href="${mail.href}">${mail['subject']}</a></td>
             <td>${mail['from']}</td> 
             <td><tt>${mail['date']}</tt></td>
           </tr>
+          # endfor
         </tbody>
       </table>
-      <xi:include py:if="paginator.show_index" href="page_index.html" />
+      # if paginator.show_index:
+      # include 'page_index.html'
+      # endif
+      <div class="buttons">
+        <form id="fetch_mail" method="post" name="fetch_mail" value="fetch_mail">
+            ${jmacros.form_token_input()}
+            <input type="submit" class="trac-disable-on-submit" name="fetch_mail" value="Fetch Mail" />
+        </form>
+      </div>
       <div id="help">${help}</div>
     </div>
+  # endblock content
   </body>
 </html>
