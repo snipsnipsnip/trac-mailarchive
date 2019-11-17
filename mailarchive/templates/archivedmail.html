@@ -8,11 +8,14 @@
       ${ super() }
       # endblock title
     </title>
+    # block head
+    ${ super() }
     <script type="text/javascript">
       jQuery(document).ready(function($) {
         $(".foldable").enableFolding(false, true);
       });
     </script>
+    # endblock head
   </head>
   <body>
     # block content
@@ -55,6 +58,23 @@
 
     <h2>${mail['subject']}</h2>
     <pre class="wiki">${mail['body']}</pre>
+
+    <form id="edit" class="mod" action="${ref}" method="post">
+      ${jmacros.form_token_input()}
+      <fieldset>
+        <div class="field">
+          <label>Comment:
+            <input type="text" class="trac-fullwidth wikitext"
+                  name="comment" size="40"
+                  value="${mail['comment']}" />
+          </label>
+        </div>
+      </fieldset>
+      
+      <div class="buttons">
+        <input type="submit" name="save_comment" value="${_('Save comment')}" />
+      </div>
+    </form>
   # endblock content
   </body>
 </html>

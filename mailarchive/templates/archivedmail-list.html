@@ -22,6 +22,10 @@
           <label for="max">Max items per page</label>
           <input type="text" name="max" id="max" size="10" value="${max_per_page}" />
         </p>
+        <div>
+          <label for="filter">Filter:</label>
+          <input type="input" id="filter" name="filter" value="${filter}"/>
+        </div>
         <div class="buttons">
           <input type="submit" name="update" value="Update" />
         </div>
@@ -29,7 +33,7 @@
 
       <table class="listing">
         <thead>
-          <tr class="trac-columns"><th>Subject:</th><th>From:</th><th>Date:</th></tr>
+          <tr class="trac-columns"><th>Subject:</th><th>From:</th><th>Date:</th><th>Comment:</th></tr>
         </thead>
         <tbody>
           # for mail in mails:
@@ -37,6 +41,7 @@
             <td><a href="${mail.href}">${mail['subject']}</a></td>
             <td>${mail['from']}</td> 
             <td><tt>${mail['date']}</tt></td>
+            <td>${mail['comment_html']}</td>
           </tr>
           # endfor
         </tbody>

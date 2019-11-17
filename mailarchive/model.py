@@ -25,6 +25,7 @@ SCHEMA = [
         Column('date', type='int64'),
         Column('body'),
         Column('allheaders'),
+        Column('comment'),
         Index(['date']),
     ],
 ]
@@ -94,7 +95,7 @@ def search_clauses_to_sql(db, columns, clauses):
 
 class ArchivedMail(object):
 
-    def __init__(self, id, subject, fromheader, toheader, body, allheaders, date):
+    def __init__(self, id, subject, fromheader, toheader, body, allheaders, date, comment):
         self.id = id
         self.subject = subject
         self.fromheader = fromheader
@@ -102,6 +103,7 @@ class ArchivedMail(object):
         self.body = body
         self.allheaders = allheaders
         self.date = from_utimestamp(date)
+        self.comment = comment
 
     @classmethod
     def parse(cls, id, source):
@@ -129,7 +131,8 @@ class ArchivedMail(object):
                             header_to_unicode(msg['to']),
                             to_unicode(body, charset),
                             to_unicode(allheaders, 'ASCII'),
-                            to_utimestamp(date))
+                            to_utimestamp(date),
+                            '')
         return (mail, msg)
 
     @classmethod
@@ -139,9 +142,9 @@ class ArchivedMail(object):
             cursor = db.cursor()
             cursor.execute("""
             INSERT INTO mailarchive
-                        (id, subject, fromheader, toheader, body, allheaders, date)
-                 VALUES (%s, %s, %s, %s, %s, %s, %s)
-            """, (mail.id, mail.subject, mail.fromheader, mail.toheader, mail.body, mail.allheaders, to_utimestamp(mail.date)))
+                        (id, subject, fromheader, toheader, body, allheaders, date, comment)
+                 VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+            """, (mail.id, mail.subject, mail.fromheader, mail.toheader, mail.body, mail.allheaders, to_utimestamp(mail.date), mail.comment))
 
     @classmethod
     def storeattachments(cls, env, mail, msg):
@@ -183,20 +186,20 @@ class ArchivedMail(object):
     @classmethod
     def select_all(cls, env):
         with env.db_query as db:
-            return [ArchivedMail(id, subject, fromheader, toheader, body, allheaders, date)
-                    for id, subject, fromheader, toheader, body, allheaders, date in
+            return [ArchivedMail(id, subject, fromheader, toheader, body, allheaders, date, comment)
+                    for id, subject, fromheader, toheader, body, allheaders, date, comment in
                     db("""
-                    SELECT id, subject, fromheader, toheader, body, allheaders, date
+                    SELECT id, subject, fromheader, toheader, body, allheaders, date, comment
                     FROM mailarchive
                     """)]
 
     @classmethod
     def select_all_paginated(cls, env, page, max_per_page):
         with env.db_query as db:
-            return [ArchivedMail(id, subject, fromheader, toheader, body, allheaders, date)
-                    for id, subject, fromheader, toheader, body, allheaders, date in
+            return [ArchivedMail(id, subject, fromheader, toheader, body, allheaders, date, comment)
+                    for id, subject, fromheader, toheader, body, allheaders, date, comment in
                     db("""
-                    SELECT id, subject, fromheader, toheader, body, allheaders, date
+                    SELECT id, subject, fromheader, toheader, body, allheaders, date, comment
                     FROM mailarchive
                     ORDER BY date DESC
                     LIMIT %d OFFSET %d
@@ -211,13 +214,45 @@ class ArchivedMail(object):
                     """)[0][0]
 
     @classmethod
-    def search(cls, env, terms):
+    def select_filtered_paginated(cls, env, page, max_per_page, filter):
+        if not filter:
+            return cls.select_all_paginated(env, page, max_per_page)
         with env.db_query as db:
-            sql_query, args = search_clauses_to_sql(db, ['body', 'allheaders'], terms_to_clauses(terms))
-            return [ArchivedMail(id, subject, fromheader, toheader, body, allheaders, date)
-                    for id, subject, fromheader, toheader, body, allheaders, date in
+            terms = filter.split()
+            sql_query, args = search_clauses_to_sql(db, ['body', 'allheaders', 'comment'], terms_to_clauses(terms))
+            return [ArchivedMail(id, subject, fromheader, toheader, body, allheaders, date, comment)
+                    for id, subject, fromheader, toheader, body, allheaders, date, comment in
                     db("""
-                    SELECT id, subject, fromheader, toheader, body, allheaders, date
+                    SELECT id, subject, fromheader, toheader, body, allheaders, date, comment
+                    FROM mailarchive
+                    WHERE %s
+                    ORDER BY date DESC
+                    LIMIT %d OFFSET %d
+                    """ % (sql_query, max_per_page, max_per_page * (page - 1)), args)]
+
+    @classmethod
+    def count_filtered(cls, env, filter):
+        if not filter:
+            return cls.count_all(env)
+        with env.db_query as db:
+            terms = filter.split()
+            sql_query, args = search_clauses_to_sql(db, ['body', 'allheaders', 'comment'], terms_to_clauses(terms))
+            return db("""
+                    SELECT COUNT(*)
+                    FROM mailarchive
+                    WHERE
+                    """ + sql_query, args)[0][0]
+
+    @classmethod
+    def search(cls, env, terms, max=0):
+        with env.db_query as db:
+            sql_query, args = search_clauses_to_sql(db, ['body', 'allheaders', 'comment'], terms_to_clauses(terms))
+            if max > 0:
+                sql_query += " LIMIT %d" % (max,)
+            return [ArchivedMail(id, subject, fromheader, toheader, body, allheaders, date, comment)
+                    for id, subject, fromheader, toheader, body, allheaders, date, comment in
+                    db("""
+                    SELECT id, subject, fromheader, toheader, body, allheaders, date, comment
                     FROM mailarchive
                     WHERE
                     """ + sql_query, args)]
@@ -225,11 +260,21 @@ class ArchivedMail(object):
     @classmethod
     def select_by_id(cls, env, id):
         rows = env.db_query("""
-                SELECT id, subject, fromheader, toheader, body, allheaders, date
+                SELECT id, subject, fromheader, toheader, body, allheaders, date, comment
                 FROM mailarchive
                 WHERE id=%s
                 """, (str(id),))
         if not rows:
             return None
-        id, subject, fromheader, toheader, body, allheaders, date = rows[0]
-        return ArchivedMail(id, subject, fromheader, toheader, body, allheaders, date)
+        id, subject, fromheader, toheader, body, allheaders, date, comment = rows[0]
+        return ArchivedMail(id, subject, fromheader, toheader, body, allheaders, date, comment)
+
+    @classmethod
+    def update_comment(cls, env, id, comment):
+        with env.db_transaction as db:
+            cursor = db.cursor()
+            cursor.execute("""
+            UPDATE mailarchive
+               SET comment=%s
+             WHERE id=%s
+            """, (comment, str(id)))

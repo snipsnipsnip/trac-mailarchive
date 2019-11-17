@@ -15,7 +15,7 @@ from trac.util.translation import _
 from mailarchive.model import ArchivedMail, SCHEMA, normalized_filename
 
 PLUGIN_NAME = 'MailArchivePlugin'
-PLUGIN_VERSION = 1
+PLUGIN_VERSION = 2
 
 
 def to_imap_date(d):

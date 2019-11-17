@@ -15,7 +15,8 @@ from trac.util.datefmt import format_datetime
 from trac.util.presentation import Paginator
 from trac.web import IRequestHandler
 from trac.web.chrome import (INavigationContributor, ITemplateProvider,
-                             add_link, add_script, prevnext_nav, web_context)
+                             add_link, add_notice, add_script, prevnext_nav,
+                             web_context)
 from trac.wiki.formatter import format_to_html
 from trac.wiki.macros import WikiMacroBase
 from trac.wiki.api import IWikiSyntaxProvider, parse_args
@@ -116,6 +117,11 @@ class MailArchiveModule(Component):
                 admin = MailArchiveAdmin(self.env)
                 admin._do_fetch(self.host, self.username, self.password)
                 req.redirect(req.href.mailarchive())
+            if req.args.get('save_comment'):
+                id = int(req.args.get('message-id'))
+                comment = req.args.get('comment')
+                ArchivedMail.update_comment(self.env, id, comment)
+                add_notice(req, "The comment has been updated.")
 
         if 'message-id' in req.args:
             id = int(req.args.get('message-id'))
@@ -125,14 +131,17 @@ class MailArchiveModule(Component):
     def _render_list(self, req):
         page = int(req.args.get('page', 1))
         max_per_page = int(req.args.get('max', 40))
+        filter = req.args.get('filter', '')
+        context = web_context(req, 'mailarchive')
 
         mails = [{
             'subject': escape(mail.subject),
             'href': req.href.mailarchive(mail.id),
             'from': render_mailto(mail.fromheader or ''),
             'date': format_datetime(mail.date),
-        } for mail in ArchivedMail.select_all_paginated(self.env, page, max_per_page)]
-        total_count = ArchivedMail.count_all(self.env)
+            'comment_html': format_to_html(self.env, context, mail.comment),
+        } for mail in ArchivedMail.select_filtered_paginated(self.env, page, max_per_page, filter)]
+        total_count = ArchivedMail.count_filtered(self.env, filter)
 
         paginator = Paginator(mails, page - 1, max_per_page, total_count)
         if paginator.has_next_page:
@@ -152,10 +161,15 @@ class MailArchiveModule(Component):
                                 'string': str(paginator.page + 1),
                                 'title':None}
 
-        context = web_context(req, 'mailarchive')
         help_html = format_to_html(self.env, context, self.help)
 
-        data = { 'mails': mails, 'paginator': paginator, 'max_per_page': max_per_page, 'help': help_html }
+        data = {
+            'mails': mails,
+            'paginator': paginator,
+            'max_per_page': max_per_page,
+            'help': help_html,
+            'filter': filter,
+        }
         return "archivedmail-list.html", data
 
     def _render_mail(self, req, id):
@@ -171,6 +185,7 @@ class MailArchiveModule(Component):
                 'body': escape(mail.body),
                 'allheaders': escape(mail.allheaders),
                 'date': format_datetime(mail.date),
+                'comment': escape(mail.comment),
                 'ref': req.href.mailarchive(mail.id),
                 'current': int(mail.id) == id,
             }
@@ -278,7 +293,8 @@ class MailQueryMacro(WikiMacroBase):
         for mail in ArchivedMail.search(self.env, terms, max):
             link = formatter.href.mailarchive(mail.id)
             title = escape(mail.subject)
-            items.append((mail, title, link))
+            comment = format_to_html(self.env, formatter.context, mail.comment)
+            items.append((mail, title, link, comment))
 
         format = kw.get('format', 'table')
         if format == 'list':
@@ -286,14 +302,15 @@ class MailQueryMacro(WikiMacroBase):
                 tag.ul(
                     tag.li(
                         tag.a(title, href=link))
-                    for mail, title, link in items))
+                    for mail, title, link, comment in items))
         elif format == 'table':
             rows = [tag.tr(
                         tag.td(tag.a(title, href=link)),
                         tag.td(render_mailto(mail.fromheader or '')),
                         tag.td(tag.tt(format_datetime(mail.date))),
+                        tag.td(comment),
                         class_='odd' if idx % 2 else 'even')
-                    for idx, (mail, title, link) in enumerate(items)]
+                    for idx, (mail, title, link, comment) in enumerate(items)]
             if not rows:
                 rows = [tag.tr(tag.td('No mails found', colspan=3, class_='even'))]
 
@@ -303,6 +320,7 @@ class MailQueryMacro(WikiMacroBase):
                         tag.th('Subject:'),
                         tag.th('From:'),
                         tag.th('Date:'),
+                        tag.th('Comment:'),
                         class_='trac-columns')),
                 tag.tbody(rows),
                 class_='listing')
