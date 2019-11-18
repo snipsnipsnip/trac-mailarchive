@@ -9,7 +9,7 @@ setup(
     author = 'Peter Suter',
     author_email = 'peter@lucid.ch',
     description = 'Mail Archive',
-    packages = ['mailarchive'],
+    packages = ['mailarchive', 'mailarchive.upgrades'],
     package_data = {'mailarchive': ['templates/*.html']},
 
     entry_points = {'trac.plugins': [
