@@ -15,6 +15,15 @@ from trac.resource import Resource
 from trac.util.datefmt import from_utimestamp, to_utimestamp, utc
 from trac.util.text import stripws
 
+try:
+    unichr
+except NameError:
+    unichr = chr # In Python 3 chr can be used instead of unichr in Python 2
+
+try:
+    xrange
+except NameError:
+    xrange = range # In Python 3 range can be used instead of xrange in Python 2
 
 SCHEMA = [
     Table('mailarchive', key='id')[

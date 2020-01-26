@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
 
+from __future__ import print_function
+
 import imaplib
 import datetime
 import os
@@ -49,7 +51,7 @@ class MailArchiveAdmin(Component):
 
             # No duplicates
             if ArchivedMail.select_by_id(self.env, uid) is not None:
-                print "Skipping mail with UID %s" % (uid,)
+                print("Skipping mail with UID %s" % (uid,))
                 continue
 
             typ, data = imap_conn.uid('fetch', uid, '(RFC822)')

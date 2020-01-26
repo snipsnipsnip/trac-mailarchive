@@ -201,7 +201,7 @@ class MailArchiveModule(Component):
                 for part in header[len(h):].split(' ')
                 if part
                 for found_mail in ArchivedMail.search(self.env, [part.strip()])
-            }.iteritems())
+            }.items())
         ]
 
         resource = Resource('mailarchive', id)
