@@ -30,21 +30,21 @@ class MailArchiveAdmin(Component):
     # IAdminCommandProvider methods
 
     def get_admin_commands(self):
-        yield ('mailarchive fetch', '<host> <username> <password>',
+        yield ('mailarchive fetch', '<host> <username> <password> <inbox> <filter>',
                'Download mails to the archive (via IMAP4)',
                None, self._do_fetch)
         yield ('mailarchive fix-attachment-filenames', '',
                'Normalize old broken attachment filenames.',
                None, self._do_fix_attachment_filenames)
 
-    def _do_fetch(self, host, username, password):
+    def _do_fetch(self, host, username, password, inbox, filter):
         imap_conn = imaplib.IMAP4_SSL(host)
         imap_conn.login(username, password)
-        imap_conn.select()
+        imap_conn.select(inbox, True)
 
         # Search for mails since yesterday
         yesterday = to_imap_date(datetime.date.today() - datetime.timedelta(1))
-        typ, data = imap_conn.uid('search', None, '(OR UNSEEN (SINCE %s))' % (yesterday,))
+        typ, data = imap_conn.uid('search', None, '(OR UNSEEN (SINCE %s)) %s' % (yesterday, filter))
         for uid in data[0].split():
 
             # No duplicates
