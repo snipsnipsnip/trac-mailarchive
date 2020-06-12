@@ -4,6 +4,9 @@ import imaplib
 import datetime
 import os
 
+from binascii import hexlify
+from email import message_from_string
+
 from trac.admin import IAdminCommandProvider
 from trac.attachment import Attachment
 from trac.core import Component, TracError, implements
@@ -46,15 +49,18 @@ class MailArchiveAdmin(Component):
         yesterday = to_imap_date(datetime.date.today() - datetime.timedelta(1))
         typ, data = imap_conn.uid('search', None, '(OR UNSEEN (SINCE %s))' % (yesterday,))
         for uid in data[0].split():
+            typ, data = imap_conn.uid('fetch', uid, '(BODY[HEADER.FIELDS (MESSAGE-ID)])')
+            message_id = message_from_string(data[0][1].decode('utf-8')).get('Message-ID')
+            mailid = hexlify(message_id.encode('utf-8'))
 
             # No duplicates
-            if ArchivedMail.select_by_id(self.env, uid) is not None:
-                print "Skipping mail with UID %s" % (uid,)
+            if ArchivedMail.select_by_id(self.env, mailid) is not None:
+                print "Skipping mail with Message-ID %s" % (message_id,)
                 continue
 
             typ, data = imap_conn.uid('fetch', uid, '(RFC822)')
             source = data[0][1]
-            mail, msg = ArchivedMail.parse(uid, source)
+            mail, msg = ArchivedMail.parse(mailid, source)
             ArchivedMail.add(self.env, mail)
             ArchivedMail.storeattachments(self.env, mail, msg)
         imap_conn.close()

@@ -90,7 +90,7 @@ class MailArchiveModule(Component):
 
     # IRequestHandler methods
 
-    MATCH_REQUEST_RE = re.compile(r'/mailarchive(?:/(\d+))?$')
+    MATCH_REQUEST_RE = re.compile(r'/mailarchive(?:/([a-fA-F\d]+))?$')
 
     def match_request(self, req):
         match = self.MATCH_REQUEST_RE.match(req.path_info)
@@ -103,7 +103,7 @@ class MailArchiveModule(Component):
         req.perm.require('MAIL_ARCHIVE_VIEW')
 
         if 'message-id' in req.args:
-            id = int(req.args.get('message-id'))
+            id = req.args.get('message-id')
             return self._render_mail(req, id)
         return self._render_list(req)
 
@@ -162,11 +162,7 @@ class MailArchiveModule(Component):
             'attachments': AttachmentModule(self.env).attachment_data(context),
         }
 
-        if ArchivedMail.select_by_id(self.env, id - 1) is not None:
-            add_link(req, 'prev', req.href.mailarchive(id - 1), 'Prev')
         add_link(req, 'up', req.href.mailarchive(), 'Up')
-        if ArchivedMail.select_by_id(self.env, id + 1) is not None:
-            add_link(req, 'next', req.href.mailarchive(id + 1), 'Next')
         prevnext_nav(req, 'Prev', 'Next', 'Up')
 
         add_script(req, 'common/js/folding.js')
